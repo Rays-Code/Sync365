@@ -1,0 +1,1413 @@
+?{
+	"info": {
+		"name": "sync365 Stripe API — Supabase Edge Functions",
+		"description": "Complete Postman collection for all 16 Supabase Stripe + utility edge functions with 8-rule subscription conflict matrix tests.\n\n**Base URL:** `{{SUPABASE_URL}}/functions/v1`\n\n**Auth:** Set `{{ADMIN_PASSWORD}}`, `{{USER_EMAIL}}` and `{{AUTH_TOKEN}}` in your environment.\n- Admin endpoints require a valid JWT from a signed-in admin user (role check via `user_roles`).\n- User endpoints require a valid JWT (self-only via `userId` match).\n- The webhook uses Stripe's signature instead of JWT.\n- `detect-country` requires no auth.\n\n**Setup:**\n1. Create a Postman environment with:\n   - `SUPABASE_URL` = `https://xftwntynzjgaedyfyxew.supabase.co`\n   - `SUPABASE_ANON_KEY` = your anon key (from `.env` → `VITE_SUPABASE_PUBLISHABLE_KEY`)\n   - `USER_EMAIL` = your admin login email\n   - `ADMIN_PASSWORD` = your admin login password\n   - `STRIPE_WEBHOOK_SECRET` = whsec_... (for local webhook testing)\n2. Run the \"🔐 Get Auth Token\" request first — it calls the `signin` edge function and auto-populates `AUTH_TOKEN`, `USER_ID`, and `USER_EMAIL`.\n3. Then run any endpoint request.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{AUTH_TOKEN}}", "type": "string" }
+		]
+	},
+	"variable": [
+		{ "key": "SUPABASE_URL", "value": "https://xftwntynzjgaedyfyxew.supabase.co" },
+		{ "key": "SUPABASE_ANON_KEY", "value": "" },
+		{ "key": "AUTH_TOKEN", "value": "" },
+		{ "key": "USER_ID", "value": "" },
+		{ "key": "USER_EMAIL", "value": "" },
+		{ "key": "ADMIN_PASSWORD", "value": "" },
+		{ "key": "STRIPE_WEBHOOK_SECRET", "value": "" }
+	],
+	"item": [
+		{
+			"name": "🔐 Auth Helper",
+			"item": [
+				{
+					"name": "Get Auth Token (email/password)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{USER_EMAIL}}\",\n  \"password\": \"{{ADMIN_PASSWORD}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/signin",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "signin"]
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var json = pm.response.json();",
+									"    pm.collectionVariables.set('AUTH_TOKEN', json.session.access_token);",
+									"    pm.collectionVariables.set('USER_ID', json.session.user.id);",
+									"    pm.collectionVariables.set('USER_EMAIL', json.session.user.email);",
+									"    console.log('Token set:', json.session.access_token);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "🛒 Checkout",
+			"item": [
+				{
+					"name": "Create Checkout Session — Monthly",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with checkout URL', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('url');",
+									"    pm.expect(json.url).to.include('https://checkout.stripe.com');",
+									"    pm.expect(json).to.have.property('sessionId');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"monthly\",\n  \"userId\": \"{{USER_ID}}\",\n  \"userEmail\": \"{{USER_EMAIL}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-checkout",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-checkout"]
+						}
+					}
+				},
+				{
+					"name": "Create Checkout Session — Yearly",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with checkout URL', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('url');",
+									"    pm.expect(json.url).to.include('https://checkout.stripe.com');",
+									"    pm.expect(json).to.have.property('sessionId');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"yearly\",\n  \"userId\": \"{{USER_ID}}\",\n  \"userEmail\": \"{{USER_EMAIL}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-checkout",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-checkout"]
+						}
+					}
+				}
+			],
+			"description": "8-Rule Conflict Matrix — Stripe-checkout validates these before creating a session:\n\n| # | State | Buy | Result |\n|---|-------|-----|--------|\n| 1 | No sub / Expired | Monthly or Yearly | ✅ Activates immediately |\n| 2 | Active Monthly | Monthly | ❌ ALREADY_ON_PLAN (409) |\n| 3 | Active Annual | Annual | ❌ ALREADY_ON_PLAN (409) |\n| 4 | Active Annual | Monthly | ❌ \"Higher-tier plan active\" (409) |\n| 5 | Active Monthly | Annual | ✅ Queued — starts after monthly ends |\n| 6 | Queued plan exists | Any | ❌ \"Plan already queued\" (409) |\n| 7 | Active (any) | Same plan | ❌ ALREADY_ON_PLAN (409) |\n| 8 | Cancelled (grace) | Any | ✅ Queued |"
+		},
+		{
+			"name": "🔄 Cancel Subscription",
+			"item": [
+				{
+					"name": "Cancel — Cancel at Period End (Monthly)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with cancel_at_period_end=true', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('subscriptionId');",
+									"    pm.expect(json.cancel_at_period_end).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionId\": \"sub_YOUR_SUB_ID_HERE\",\n  \"cancelImmediately\": false\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-cancel-subscription",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-cancel-subscription"]
+						}
+					}
+				},
+				{
+					"name": "Cancel — Immediate (Annual or Force)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with immediate cancellation', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('subscriptionId');",
+									"    pm.expect(json.status).to.eql('canceled');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionId\": \"sub_YOUR_SUB_ID_HERE\",\n  \"cancelImmediately\": true\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-cancel-subscription",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-cancel-subscription"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "💳 Refunds",
+			"item": [
+				{
+					"name": "Refund — By Payment Intent",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with refund', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.refund).to.have.property('id');",
+									"    pm.expect(json.refund.status).to.eql('succeeded');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"paymentIntentId\": \"pi_YOUR_PI_ID_HERE\",\n  \"amount\": 9.99,\n  \"reason\": \"requested_by_customer\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-refund",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-refund"]
+						}
+					}
+				},
+				{
+					"name": "Refund — Full by Charge ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with full refund', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.refund.status).to.eql('succeeded');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"chargeId\": \"ch_YOUR_CHARGE_ID_HERE\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-refund",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-refund"]
+						}
+					}
+				},
+				{
+					"name": "Refund Subscription — Full",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with subscription refund', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('refundId');",
+									"    pm.expect(json).to.have.property('subscriptionId');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionId\": \"sub_YOUR_SUB_ID_HERE\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-refund-subscription",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-refund-subscription"]
+						}
+					}
+				},
+				{
+					"name": "Refund Subscription — Partial",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with partial refund', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.refundAmount).to.eql(5.00);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subscriptionId\": \"sub_YOUR_SUB_ID_HERE\",\n  \"refundAmount\": 5.00\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-refund-subscription",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-refund-subscription"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🎫 Coupons",
+			"item": [
+				{
+					"name": "List Coupons",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with coupons list', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.coupons).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-list-coupons",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-list-coupons"]
+						}
+					}
+				},
+				{
+					"name": "Create Coupon — Percentage Off",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with created coupon', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.coupon).to.have.property('id');",
+									"    pm.expect(json.coupon.percent_off).to.eql(20);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"couponDetails\": {\n    \"id\": \"TEST_20_OFF_{{$randomInt}}\",\n    \"percent_off\": 20,\n    \"duration\": \"once\",\n    \"name\": \"Test 20% Off\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-create-coupon",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-create-coupon"]
+						}
+					}
+				},
+				{
+					"name": "Create Coupon — Amount Off",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with amount-off coupon', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.coupon.amount_off).to.eql(1000);",
+									"    pm.expect(json.coupon.currency).to.eql('aud');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"couponDetails\": {\n    \"id\": \"TEST_10_AUD_{{ $randomInt }}\",\n    \"amount_off\": 10,\n    \"currency\": \"aud\",\n    \"duration\": \"once\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-create-coupon",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-create-coupon"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🔗 Customer Portal",
+			"item": [
+				{
+					"name": "Create Portal Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with portal URL', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('url');",
+									"    pm.expect(json.url).to.include('https://billing.stripe.com');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"userEmail\": \"{{USER_EMAIL}}\",\n  \"returnUrl\": \"https://sync365.app/account/subscription\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-customer-portal",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-customer-portal"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🌐 Webhook (Local Testing)",
+			"item": [
+				{
+					"name": "Stripe Billing Webhook",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with received=true', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.received).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" },
+							{ "key": "stripe-signature", "value": "{{STRIPE_WEBHOOK_SECRET}}" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"evt_test_webhook\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": {\n    \"object\": {\n      \"id\": \"cs_test_placeholder\",\n      \"object\": \"checkout.session\",\n      \"mode\": \"subscription\",\n      \"status\": \"complete\",\n      \"payment_status\": \"paid\",\n      \"customer\": \"cus_test\",\n      \"customer_email\": \"{{USER_EMAIL}}\",\n      \"subscription\": \"sub_test\",\n      \"metadata\": {\n        \"user_id\": \"{{USER_ID}}\",\n        \"plan\": \"monthly\"\n      }\n    }\n  }\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/stripe-billing-webhook",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "stripe-billing-webhook"]
+						}
+					},
+					"description": "**Note:** The webhook requires a valid Stripe signature. This example will fail with a signature error unless you set `STRIPE_WEBHOOK_SECRET` correctly and generate a real Stripe event payload (use Stripe CLI: `stripe trigger checkout.session.completed`).\n\nFor local testing:\n1. `stripe listen --forward-to localhost:54321/functions/v1/stripe-billing-webhook`\n2. `stripe trigger checkout.session.completed`\n\nThe webhook body is shown here as a reference only."
+				}
+			]
+		},
+		{
+			"name": "🏷️ Redeem Code",
+			"item": [
+				{
+					"name": "Redeem Code (local DB code)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with code redemption', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('product_name');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"YOUR_CODE\",\n  \"detectedCountry\": \"AU\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/redeem-code",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "redeem-code"]
+						}
+					},
+					"description": "Tries local `redemption_codes` table first, falls back to Stripe coupon lookup."
+				},
+				{
+					"name": "Redeem Code (Stripe coupon)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with Stripe coupon applied', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('discount');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"TEST_20_OFF\",\n  \"detectedCountry\": \"AU\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/redeem-code",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "redeem-code"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🆔 Lookup Unique ID",
+			"item": [
+				{
+					"name": "Lookup Unique ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with unique_id', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('unique_id');",
+									"    pm.expect(json.unique_id).to.match(/^\\d{7}$/);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"authId\": \"{{USER_ID}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/lookup-unique-id",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "lookup-unique-id"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🎯 Activate Free Plan",
+			"item": [
+				{
+					"name": "Activate Free — Monthly",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with success message', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.message).to.include('Free subscription activated');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"monthly\",\n  \"userId\": \"{{USER_ID}}\",\n  \"userEmail\": \"{{USER_EMAIL}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/activate-free-plan",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "activate-free-plan"]
+						}
+					}
+				},
+				{
+					"name": "Activate Free — Yearly",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plan\": \"yearly\",\n  \"userId\": \"{{USER_ID}}\",\n  \"userEmail\": \"{{USER_EMAIL}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/activate-free-plan",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "activate-free-plan"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📋 Billing Account",
+			"item": [
+				{
+					"name": "Get Subscription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with subscription data', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('subscription');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"get-subscription\",\n  \"userId\": \"{{USER_ID}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/billing-account",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "billing-account"]
+						}
+					}
+				},
+				{
+					"name": "Get Orders",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with orders array', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.orders).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"get-orders\",\n  \"userId\": \"{{USER_ID}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/billing-account",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "billing-account"]
+						}
+					}
+				},
+				{
+					"name": "Get Transactions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with transactions array', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.transactions).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"get-transactions\",\n  \"userId\": \"{{USER_ID}}\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/billing-account",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "billing-account"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📦 Archived Data",
+			"item": [
+				{
+					"name": "Query Archived Data",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with data array and count', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.data).to.be.an('array');",
+									"    pm.expect(json).to.have.property('count');",
+									"    pm.expect(json).to.have.property('table');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"symptom_logs\",\n  \"user_id\": \"{{USER_ID}}\",\n  \"limit\": 10,\n  \"offset\": 0\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/archived-data",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "archived-data"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "🗄️ Archive Old Data (Admin)",
+			"item": [
+				{
+					"name": "Run Archive",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with archive stats', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json).to.have.property('retention_months');",
+									"    pm.expect(json).to.have.property('results');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/archive-old-data",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "archive-old-data"]
+						}
+					},
+					"description": "**Stub implementation** — returns hardcoded row counts. Admin-only."
+				}
+			]
+		},
+		{
+			"name": "🌍 Detect Country",
+			"item": [
+				{
+					"name": "Detect Country",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with country code', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('country');",
+									"    pm.expect(json.country).to.match(/^[A-Z]{2}$/);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/detect-country",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "detect-country"]
+						}
+					},
+					"description": "No auth required. No body. Reads IP from headers and geolocates via ip-api.com."
+				}
+			]
+		},
+		{
+			"name": "💰 Update Pricing (Admin)",
+			"item": [
+				{
+					"name": "List Plans",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with plans array', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"list\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/update-pricing",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "update-pricing"]
+						}
+					}
+				},
+				{
+					"name": "Add Price",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with new stripe_price_id', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.data.stripe_price_id).to.match(/^price_/);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"add_price\",\n  \"plan_id\": \"REPLACE_WITH_PLAN_UUID\",\n  \"amount\": 29.99,\n  \"interval\": \"month\",\n  \"currency\": \"AUD\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/update-pricing",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "update-pricing"]
+						}
+					}
+				},
+				{
+					"name": "List Stripe Prices",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with Stripe prices', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"    pm.expect(json.data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"list_stripe_prices\",\n  \"plan_id\": \"REPLACE_WITH_PLAN_UUID\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/update-pricing",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "update-pricing"]
+						}
+					}
+				},
+				{
+					"name": "Delete Plan Price",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with success', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"delete_plan_price\",\n  \"plan_id\": \"REPLACE_WITH_PLAN_UUID\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/update-pricing",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "update-pricing"]
+						}
+					}
+				},
+				{
+					"name": "Save Country Pricing",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with success', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"save_country_pricing\",\n  \"country_code\": \"NZ\",\n  \"country_name\": \"New Zealand\",\n  \"monthly_price\": 15.00,\n  \"yearly_price\": 120.00,\n  \"currency\": \"NZD\",\n  \"is_free\": false\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/update-pricing",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "update-pricing"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📊 External DB — Query (Admin)",
+			"item": [
+				{
+					"name": "Query pricing_plans",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with data array and count', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.data).to.be.an('array');",
+									"    pm.expect(json).to.have.property('count');",
+									"    pm.expect(json).to.have.property('table');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"pricing_plans\",\n  \"limit\": 10,\n  \"offset\": 0,\n  \"orderColumn\": \"sort_order\",\n  \"orderAsc\": true\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-query",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-query"]
+						}
+					}
+				},
+				{
+					"name": "Query subscriptions (last 5)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"    pm.expect(pm.response.json().data).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"subscriptions\",\n  \"limit\": 5,\n  \"offset\": 0,\n  \"orderColumn\": \"created_at\",\n  \"orderAsc\": false\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-query",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-query"]
+						}
+					}
+				},
+				{
+					"name": "Query admin_users (joined view)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with user rows', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.data).to.be.an('array');",
+									"    if (json.data.length) {",
+									"        pm.expect(json.data[0]).to.have.property('email');",
+									"        pm.expect(json.data[0]).to.have.property('subscription_active');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"admin_users\",\n  \"limit\": 10,\n  \"offset\": 0\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-query",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-query"]
+						}
+					}
+				}
+			],
+			"description": "Admin-only. Queries allowed tables with pagination + optional ordering.\n\n**Allowed tables:** profiles, user_roles, waitlist, site_visits, security_events, pricing_plans, country_pricing, country_access, country_feature_flags, app_settings, content_pages, refund_requests, subscriptions, orders, transactions, redemption_codes\n\n**Special table `admin_users`:** Joins auth.users + profiles + subscriptions into one view."
+		},
+		{
+			"name": "✏️ External DB — Mutate (Admin)",
+			"item": [
+				{
+					"name": "Insert — test record",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with inserted row', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('data');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"app_settings\",\n  \"operation\": \"insert\",\n  \"data\": {\n    \"setting_key\": \"test_from_postman\",\n    \"setting_value\": \"true\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-mutate",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-mutate"]
+						}
+					}
+				},
+				{
+					"name": "Update — by id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with updated row', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('data');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"app_settings\",\n  \"operation\": \"update\",\n  \"id\": \"REPLACE_WITH_UUID\",\n  \"data\": {\n    \"setting_value\": \"updated_via_postman\"\n  }\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-mutate",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-mutate"]
+						}
+					}
+				},
+				{
+					"name": "Delete — by id",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with deleted row', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('data');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"app_settings\",\n  \"operation\": \"delete\",\n  \"id\": \"REPLACE_WITH_UUID\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-mutate",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-mutate"]
+						}
+					}
+				},
+				{
+					"name": "Upsert — app_settings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"table\": \"app_settings\",\n  \"operation\": \"upsert\",\n  \"data\": {\n    \"setting_key\": \"test_from_postman\",\n    \"setting_value\": \"upserted\"\n  },\n  \"onConflict\": \"setting_key\"\n}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-mutate",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-mutate"]
+						}
+					}
+				}
+			],
+			"description": "Admin-only. Insert/update/delete/upsert on allowed tables.\n\n**Allowed tables:** Same 16 tables as external-db-query."
+		},
+		{
+			"name": "📈 External DB — Stats (Admin)",
+			"item": [
+				{
+					"name": "Get All Table Stats",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Returns 200 with website_stats and app_stats', function () {",
+									"    pm.response.to.have.status(200);",
+									"    var json = pm.response.json();",
+									"    pm.expect(json).to.have.property('website_stats');",
+									"    pm.expect(json).to.have.property('app_stats');",
+									"    pm.expect(json.website_stats).to.have.property('profiles');",
+									"    pm.expect(json.website_stats).to.have.property('subscriptions');",
+									"    pm.expect(json.website_stats).to.have.property('orders');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{SUPABASE_URL}}/functions/v1/external-db-stats",
+							"host": ["{{SUPABASE_URL}}"],
+							"path": ["functions", "v1", "external-db-stats"]
+						}
+					}
+				}
+			],
+			"description": "Admin-only. Returns row counts for all tracked tables, active subscriptions, pending refunds, and total admin users."
+		}
+	]
+}

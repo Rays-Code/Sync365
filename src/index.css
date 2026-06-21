@@ -1,0 +1,330 @@
+@import "@fontsource/cormorant-garamond/400.css";
+@import "@fontsource/cormorant-garamond/500.css";
+@import "@fontsource/cormorant-garamond/600.css";
+@import "@fontsource/cormorant-garamond/700.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/600.css";
+@import "@fontsource/dm-sans/700.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* App Theme - Lilac Light */
+    --background: 260 100% 98.5%;
+    --foreground: 240 60% 5%;
+
+    /* Cards & Surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 240 60% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 60% 5%;
+
+    /* Primary - Purple */
+    --primary: 271 85% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Purple */
+    --secondary: 271 85% 48%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted - Soft Lilac */
+    --muted: 263 60% 94%;
+    --muted-foreground: 240 35% 18%;
+
+    /* Accent - Teal */
+    --accent: 174 85% 32%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive */
+    --destructive: 352 75% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 266 40% 84%;
+    --input: 263 60% 94%;
+    --ring: 271 85% 48%;
+
+    --radius: 1rem;
+
+    /* Sidebar */
+    --sidebar-background: 260 100% 98.5%;
+    --sidebar-foreground: 240 40% 12%;
+    --sidebar-primary: 271 85% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 263 60% 94%;
+    --sidebar-accent-foreground: 240 40% 12%;
+    --sidebar-border: 266 40% 84%;
+    --sidebar-ring: 271 85% 48%;
+
+    /* Custom App Colors */
+    --cosmic-deep: 240 40% 12%;
+    --cosmic-midnight: 240 15% 28%;
+    --cosmic-nebula: 271 85% 48%;
+    --cosmic-aurora: 174 85% 32%;
+    --cosmic-rose: 352 75% 45%;
+    --cosmic-gold: 43 90% 42%;
+    --cosmic-silver: 264 15% 45%;
+    --cosmic-glow: 271 85% 48%;
+  }
+
+  .dark {
+    /* Dark mode uses same lilac light theme for consistency as requested */
+    --background: 260 100% 98.5%;
+    --foreground: 240 40% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 40% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 40% 12%;
+    --primary: 271 85% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 271 85% 48%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 263 60% 94%;
+    --muted-foreground: 240 20% 32%;
+    --accent: 174 85% 32%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 352 75% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 266 40% 84%;
+    --input: 263 60% 94%;
+    --ring: 271 85% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cormorant Garamond', serif;
+    @apply font-medium tracking-tight;
+  }
+}
+
+/* Cosmic Gradients */
+.gradient-cosmic {
+  background: linear-gradient(135deg, 
+    hsl(352 63% 54%) 0%, 
+    hsl(271 81% 56%) 100%
+  );
+}
+
+.gradient-aurora {
+  background: linear-gradient(135deg, 
+    hsl(174 72% 46%) 0%, 
+    hsl(174 72% 36%) 100%
+  );
+}
+
+.gradient-rose-gold {
+  background: linear-gradient(135deg, 
+    hsl(43 80% 60%) 0%, 
+    hsl(43 80% 46%) 100%
+  );
+}
+
+.gradient-nebula {
+  background: radial-gradient(ellipse at top right, 
+    hsl(271 81% 56% / 0.08) 0%, 
+    transparent 50%
+  ),
+  radial-gradient(ellipse at bottom left, 
+    hsl(43 80% 46% / 0.05) 0%, 
+    transparent 50%
+  ),
+  hsl(var(--background));
+}
+
+/* Glow Effects */
+.glow-primary {
+  box-shadow: 0 0 40px hsl(271 81% 56% / 0.3),
+              0 0 80px hsl(271 81% 56% / 0.1);
+}
+
+.glow-accent {
+  box-shadow: 0 0 40px hsl(174 72% 36% / 0.3),
+              0 0 80px hsl(174 72% 36% / 0.1);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 40px hsl(271 81% 56% / 0.3),
+              0 0 80px hsl(271 81% 56% / 0.1);
+}
+
+/* Text Gradients */
+.text-gradient-cosmic {
+  background: linear-gradient(135deg, 
+    hsl(271 95% 35%) 0%, 
+    hsl(240 60% 10%) 50%, 
+    hsl(174 90% 25%) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-rose {
+  background: linear-gradient(135deg, 
+    hsl(271 90% 40%) 0%, 
+    hsl(352 80% 35%) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Star Animation */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 20px hsl(271 81% 56% / 0.3);
+    opacity: 1;
+  }
+  50% { 
+    box-shadow: 0 0 40px hsl(271 81% 56% / 0.5), 0 0 60px hsl(271 81% 56% / 0.3);
+    opacity: 0.9;
+  }
+}
+
+@keyframes orbit {
+  0% { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+.animate-orbit {
+  animation: orbit 20s linear infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary) / 0) 0%,
+    hsl(var(--primary) / 0.5) 50%,
+    hsl(var(--primary) / 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Glass Effect */
+.glass {
+  background: rgba(250, 247, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid hsl(var(--border) / 0.8);
+}
+
+.glass-strong {
+  background: rgba(250, 247, 255, 0.9);
+  backdrop-filter: blur(20px) saturate(160%);
+  border-bottom: 2px solid hsl(var(--border) / 0.6);
+  box-shadow: 0 8px 32px -5px rgba(0, 0, 0, 0.05);
+}
+
+/* Moon Phases */
+.moon-phase {
+  background: linear-gradient(135deg, 
+    hsl(240 28% 15%) 0%, 
+    hsl(240 10% 32%) 50%,
+    hsl(240 7% 51%) 100%
+  );
+  box-shadow: 
+    inset -10px -5px 20px hsl(240 28% 10% / 0.5),
+    0 0 40px hsl(240 28% 15% / 0.3);
+}
+
+/* Cosmic Button Styles */
+.btn-cosmic {
+  @apply relative overflow-hidden text-white font-bold px-10 py-4 rounded-[22px] transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2;
+  background: linear-gradient(135deg, 
+    #D43D51 0%, 
+    #9333EA 100%
+  );
+  box-shadow: 0 10px 25px -5px rgba(147, 51, 234, 0.4);
+}
+
+.btn-cosmic:hover {
+  @apply shadow-xl -translate-y-0.5;
+  filter: brightness(1.05);
+}
+
+.btn-cosmic::before {
+  content: '';
+  @apply absolute inset-0;
+  background: linear-gradient(135deg, 
+    hsl(271 81% 66%) 0%, 
+    hsl(174 72% 46%) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-cosmic:hover::before {
+  opacity: 1;
+}
+
+/* Curved sections */
+.curved-section {
+  position: relative;
+  padding: 6rem 2rem;
+  overflow: hidden;
+}
+
+.curved-section::before {
+  content: "";
+  position: absolute;
+  top: -5rem;
+  left: 0;
+  width: 100%;
+  height: 10rem;
+  background-color: inherit;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  transform: scaleX(1.5);
+}
+
+.curved-section::after {
+  content: "";
+  position: absolute;
+  bottom: -5rem;
+  left: 0;
+  width: 100%;
+  height: 10rem;
+  background-color: inherit;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  transform: scaleX(1.5);
+}
